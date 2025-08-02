@@ -1,0 +1,647 @@
+-- VidGro Admin Panel Functions - Clean Version
+-- Drops existing functions first to avoid conflicts
+
+-- =====================================================
+-- DROP EXISTING FUNCTIONS
+-- =====================================================
+
+DROP FUNCTION IF EXISTS get_admin_dashboard_stats();
+DROP FUNCTION IF EXISTS get_all_users_with_filters(TEXT, BOOLEAN, INTEGER, INTEGER, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS get_all_videos_with_filters(TEXT, TEXT, INTEGER, INTEGER, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS admin_adjust_user_coins(UUID, INTEGER, TEXT, TEXT);
+DROP FUNCTION IF EXISTS admin_update_user_vip_status(UUID, BOOLEAN, INTEGER, TEXT);
+DROP FUNCTION IF EXISTS admin_update_video_status(UUID, TEXT, TEXT, TEXT);
+DROP FUNCTION IF EXISTS get_user_growth_analytics(INTEGER);
+DROP FUNCTION IF EXISTS get_video_performance_analytics(INTEGER);
+DROP FUNCTION IF EXISTS get_coin_economy_analytics(INTEGER);
+DROP FUNCTION IF EXISTS get_system_config();
+DROP FUNCTION IF EXISTS log_admin_action(TEXT, TEXT, TEXT, UUID, JSONB, JSONB, TEXT, TEXT, JSONB);
+DROP FUNCTION IF EXISTS get_admin_logs(TEXT, TEXT, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS check_admin_permission(TEXT, TEXT);
+
+-- =====================================================
+-- DASHBOARD STATISTICS
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION get_admin_dashboard_stats()
+RETURNS JSON AS $$
+DECLARE
+  total_users INTEGER;
+  active_videos INTEGER;
+  vip_users INTEGER;
+  total_coins_distributed BIGINT;
+  daily_active_users INTEGER;
+  video_completion_rate DECIMAL;
+  average_watch_time INTEGER;
+  monthly_revenue DECIMAL;
+  user_growth_rate DECIMAL;
+  total_transactions INTEGER;
+  pending_videos INTEGER;
+BEGIN
+  -- Get total users
+  SELECT COUNT(*) INTO total_users FROM profiles;
+  
+  -- Get active videos
+  SELECT COUNT(*) INTO active_videos 
+  FROM videos 
+  WHERE status IN ('active', 'repromoted');
+  
+  -- Get VIP users
+  SELECT COUNT(*) INTO vip_users 
+  FROM profiles 
+  WHERE is_vip = true;
+  
+  -- Get total coins distributed
+  SELECT COALESCE(SUM(coin_reward), 0) INTO total_coins_distributed 
+  FROM videos;
+  
+  -- Get daily active users
+  SELECT COUNT(DISTINCT user_id) INTO daily_active_users 
+  FROM videos 
+  WHERE updated_at >= NOW() - INTERVAL '24 hours';
+  
+  -- Get average completion rate
+  SELECT COALESCE(AVG(completion_rate), 0) INTO video_completion_rate 
+  FROM videos 
+  WHERE status = 'completed';
+  
+  -- Get average watch time
+  SELECT COALESCE(AVG(total_watch_time), 0) INTO average_watch_time 
+  FROM videos;
+  
+  -- Get monthly revenue
+  SELECT COALESCE(SUM(amount), 0) INTO monthly_revenue 
+  FROM coin_transactions 
+  WHERE transaction_type = 'purchase' 
+  AND created_at >= NOW() - INTERVAL '30 days';
+  
+  -- Get user growth rate
+  WITH current_month AS (
+    SELECT COUNT(*) as count FROM profiles 
+    WHERE created_at >= NOW() - INTERVAL '30 days'
+  ),
+  previous_month AS (
+    SELECT COUNT(*) as count FROM profiles 
+    WHERE created_at >= NOW() - INTERVAL '60 days' 
+    AND created_at < NOW() - INTERVAL '30 days'
+  )
+  SELECT 
+    CASE 
+      WHEN pm.count = 0 THEN 100.0
+      ELSE ((cm.count - pm.count)::DECIMAL / pm.count * 100)
+    END INTO user_growth_rate
+  FROM current_month cm, previous_month pm;
+  
+  -- Get total transactions
+  SELECT COUNT(*) INTO total_transactions 
+  FROM coin_transactions;
+  
+  -- Get pending videos
+  SELECT COUNT(*) INTO pending_videos 
+  FROM videos 
+  WHERE status = 'on_hold';
+  
+  RETURN json_build_object(
+    'totalUsers', total_users,
+    'activeVideos', active_videos,
+    'vipUsers', vip_users,
+    'totalCoinsDistributed', total_coins_distributed,
+    'dailyActiveUsers', daily_active_users,
+    'videoCompletionRate', video_completion_rate,
+    'averageWatchTime', average_watch_time,
+    'monthlyRevenue', monthly_revenue,
+    'userGrowthRate', user_growth_rate,
+    'totalTransactions', total_transactions,
+    'pendingVideos', pending_videos
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- USER MANAGEMENT
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION get_all_users_with_filters(
+  search_term TEXT,
+  vip_only BOOLEAN,
+  min_coins INTEGER,
+  max_coins INTEGER,
+  limit_count INTEGER,
+  offset_count INTEGER
+)
+RETURNS TABLE(
+  id UUID,
+  username TEXT,
+  email TEXT,
+  coins INTEGER,
+  is_vip BOOLEAN,
+  vip_expires_at TIMESTAMPTZ,
+  referral_code TEXT,
+  referred_by UUID,
+  total_earned INTEGER,
+  total_spent INTEGER,
+  videos_posted INTEGER,
+  last_active TIMESTAMPTZ,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    p.id,
+    p.username,
+    p.email,
+    p.coins,
+    p.is_vip,
+    p.vip_expires_at,
+    p.referral_code,
+    p.referred_by,
+    COALESCE(SUM(v.coin_reward), 0) as total_earned,
+    COALESCE(SUM(v.coin_cost), 0) as total_spent,
+    COUNT(v.id) as videos_posted,
+    MAX(v.updated_at) as last_active,
+    p.created_at,
+    p.updated_at
+  FROM profiles p
+  LEFT JOIN videos v ON p.id = v.user_id
+  WHERE 
+    (search_term IS NULL OR 
+     p.username ILIKE '%' || search_term || '%' OR 
+     p.email ILIKE '%' || search_term || '%')
+    AND (NOT vip_only OR p.is_vip = true)
+    AND p.coins >= min_coins
+    AND (max_coins IS NULL OR p.coins <= max_coins)
+  GROUP BY p.id, p.username, p.email, p.coins, p.is_vip, p.vip_expires_at, 
+           p.referral_code, p.referred_by, p.created_at, p.updated_at
+  ORDER BY p.created_at DESC
+  LIMIT limit_count OFFSET offset_count;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION admin_adjust_user_coins(
+  user_uuid UUID,
+  coin_adjustment INTEGER,
+  reason TEXT,
+  admin_id TEXT
+)
+RETURNS JSON AS $$
+DECLARE
+  user_record RECORD;
+  new_balance INTEGER;
+BEGIN
+  SELECT * INTO user_record FROM profiles WHERE id = user_uuid;
+  
+  IF NOT FOUND THEN
+    RETURN json_build_object('success', false, 'error', 'User not found');
+  END IF;
+  
+  new_balance := user_record.coins + coin_adjustment;
+  
+  IF new_balance < 0 THEN
+    RETURN json_build_object('success', false, 'error', 'Insufficient coins for adjustment');
+  END IF;
+  
+  UPDATE profiles 
+  SET coins = new_balance, updated_at = NOW()
+  WHERE id = user_uuid;
+  
+  INSERT INTO coin_transactions (
+    user_id, amount, transaction_type, description, reference_id
+  ) VALUES (
+    user_uuid, coin_adjustment, 'admin_adjustment', reason, user_uuid
+  );
+  
+  RETURN json_build_object(
+    'success', true,
+    'new_balance', new_balance,
+    'adjustment', coin_adjustment,
+    'message', 'User coins adjusted successfully'
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION admin_update_user_vip_status(
+  user_uuid UUID,
+  is_vip BOOLEAN,
+  vip_duration_days INTEGER,
+  admin_id TEXT
+)
+RETURNS JSON AS $$
+DECLARE
+  user_record RECORD;
+BEGIN
+  SELECT * INTO user_record FROM profiles WHERE id = user_uuid;
+  
+  IF NOT FOUND THEN
+    RETURN json_build_object('success', false, 'error', 'User not found');
+  END IF;
+  
+  UPDATE profiles 
+  SET 
+    is_vip = is_vip,
+    vip_expires_at = CASE 
+      WHEN is_vip THEN NOW() + INTERVAL '1 day' * vip_duration_days
+      ELSE NULL
+    END,
+    updated_at = NOW()
+  WHERE id = user_uuid;
+  
+  RETURN json_build_object(
+    'success', true,
+    'is_vip', is_vip,
+    'vip_expires_at', CASE 
+      WHEN is_vip THEN NOW() + INTERVAL '1 day' * vip_duration_days
+      ELSE NULL
+    END,
+    'message', 'User VIP status updated successfully'
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- VIDEO MANAGEMENT
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION get_all_videos_with_filters(
+  status_filter TEXT,
+  user_search TEXT,
+  min_views INTEGER,
+  max_views INTEGER,
+  limit_count INTEGER,
+  offset_count INTEGER
+)
+RETURNS TABLE(
+  id UUID,
+  user_id UUID,
+  username TEXT,
+  title TEXT,
+  youtube_url TEXT,
+  status TEXT,
+  views_count INTEGER,
+  target_views INTEGER,
+  completion_rate DECIMAL,
+  coin_cost INTEGER,
+  coin_reward INTEGER,
+  total_watch_time INTEGER,
+  engagement_rate DECIMAL,
+  average_watch_time DECIMAL,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ,
+  hold_until TIMESTAMPTZ,
+  repromoted_at TIMESTAMPTZ
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    v.id,
+    v.user_id,
+    p.username,
+    v.title,
+    v.youtube_url,
+    v.status,
+    v.views_count,
+    v.target_views,
+    v.completion_rate,
+    v.coin_cost,
+    v.coin_reward,
+    v.total_watch_time,
+    v.engagement_rate,
+    v.average_watch_time,
+    v.created_at,
+    v.updated_at,
+    v.hold_until,
+    v.repromoted_at
+  FROM videos v
+  JOIN profiles p ON v.user_id = p.id
+  WHERE 
+    (status_filter IS NULL OR v.status = status_filter)
+    AND (user_search IS NULL OR p.username ILIKE '%' || user_search || '%')
+    AND v.views_count >= min_views
+    AND (max_views IS NULL OR v.views_count <= max_views)
+  ORDER BY v.created_at DESC
+  LIMIT limit_count OFFSET offset_count;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION admin_update_video_status(
+  video_uuid UUID,
+  new_status TEXT,
+  admin_id TEXT,
+  reason TEXT
+)
+RETURNS JSON AS $$
+DECLARE
+  video_record RECORD;
+BEGIN
+  SELECT * INTO video_record FROM videos WHERE id = video_uuid;
+  
+  IF NOT FOUND THEN
+    RETURN json_build_object('success', false, 'error', 'Video not found');
+  END IF;
+  
+  IF new_status NOT IN ('active', 'paused', 'completed', 'on_hold', 'repromoted') THEN
+    RETURN json_build_object('success', false, 'error', 'Invalid status');
+  END IF;
+  
+  UPDATE videos 
+  SET 
+    status = new_status,
+    updated_at = NOW(),
+    hold_until = CASE WHEN new_status = 'on_hold' THEN NOW() + INTERVAL '10 minutes' ELSE hold_until END,
+    repromoted_at = CASE WHEN new_status = 'repromoted' THEN NOW() ELSE repromoted_at END
+  WHERE id = video_uuid;
+  
+  INSERT INTO coin_transactions (
+    user_id, amount, transaction_type, description, reference_id
+  ) VALUES (
+    video_record.user_id, 0, 'admin_adjustment', 
+    'Video status changed to ' || new_status || CASE WHEN reason IS NOT NULL THEN ': ' || reason ELSE '' END,
+    video_uuid
+  );
+  
+  RETURN json_build_object(
+    'success', true,
+    'new_status', new_status,
+    'message', 'Video status updated successfully'
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- ANALYTICS
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION get_user_growth_analytics(
+  days_back INTEGER
+)
+RETURNS TABLE(
+  date DATE,
+  new_users INTEGER,
+  active_users INTEGER,
+  vip_conversions INTEGER
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    d.date,
+    COUNT(DISTINCT p.id) as new_users,
+    COUNT(DISTINCT v.user_id) as active_users,
+    COUNT(DISTINCT CASE WHEN p.is_vip THEN p.id END) as vip_conversions
+  FROM generate_series(
+    CURRENT_DATE - INTERVAL '1 day' * days_back,
+    CURRENT_DATE,
+    INTERVAL '1 day'
+  ) d(date)
+  LEFT JOIN profiles p ON DATE(p.created_at) = d.date
+  LEFT JOIN videos v ON DATE(v.updated_at) = d.date
+  GROUP BY d.date
+  ORDER BY d.date;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_video_performance_analytics(
+  days_back INTEGER
+)
+RETURNS TABLE(
+  date DATE,
+  videos_created INTEGER,
+  videos_completed INTEGER,
+  total_views INTEGER,
+  total_watch_time INTEGER,
+  avg_completion_rate DECIMAL
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    d.date,
+    COUNT(DISTINCT v.id) as videos_created,
+    COUNT(DISTINCT CASE WHEN v.status = 'completed' THEN v.id END) as videos_completed,
+    COALESCE(SUM(v.views_count), 0) as total_views,
+    COALESCE(SUM(v.total_watch_time), 0) as total_watch_time,
+    COALESCE(AVG(v.completion_rate), 0) as avg_completion_rate
+  FROM generate_series(
+    CURRENT_DATE - INTERVAL '1 day' * days_back,
+    CURRENT_DATE,
+    INTERVAL '1 day'
+  ) d(date)
+  LEFT JOIN videos v ON DATE(v.created_at) = d.date
+  GROUP BY d.date
+  ORDER BY d.date;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_coin_economy_analytics(
+  days_back INTEGER
+)
+RETURNS TABLE(
+  date DATE,
+  coins_distributed INTEGER,
+  coins_spent INTEGER,
+  net_coin_flow INTEGER,
+  total_transactions INTEGER
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    d.date,
+    COALESCE(SUM(CASE WHEN ct.transaction_type = 'video_watch' THEN ct.amount ELSE 0 END), 0) as coins_distributed,
+    COALESCE(SUM(CASE WHEN ct.transaction_type = 'video_promotion' THEN ct.amount ELSE 0 END), 0) as coins_spent,
+    COALESCE(SUM(ct.amount), 0) as net_coin_flow,
+    COUNT(ct.id) as total_transactions
+  FROM generate_series(
+    CURRENT_DATE - INTERVAL '1 day' * days_back,
+    CURRENT_DATE,
+    INTERVAL '1 day'
+  ) d(date)
+  LEFT JOIN coin_transactions ct ON DATE(ct.created_at) = d.date
+  GROUP BY d.date
+  ORDER BY d.date;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- SYSTEM CONFIG
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION get_system_config()
+RETURNS JSON AS $$
+BEGIN
+  RETURN json_build_object(
+    'general', json_build_object(
+      'platformName', 'VidGro',
+      'supportEmail', 'support@vidgro.com',
+      'maxVideoSize', 100,
+      'allowedVideoFormats', json_build_array('mp4', 'mov', 'avi'),
+      'maintenanceMode', false
+    ),
+    'users', json_build_object(
+      'registrationEnabled', true,
+      'emailVerificationRequired', true,
+      'maxCoinsPerUser', 100000,
+      'vipUpgradePrice', 9.99,
+      'referralReward', 50
+    ),
+    'videos', json_build_object(
+      'maxVideosPerUser', 10,
+      'autoModerationEnabled', true,
+      'minVideoLength', 10,
+      'maxVideoLength', 300,
+      'thumbnailRequired', true
+    ),
+    'economy', json_build_object(
+      'coinPrice', 0.01,
+      'videoReward', 10,
+      'dailyBonusCoins', 5,
+      'vipMultiplier', 2.0,
+      'withdrawalMinimum', 1000
+    ),
+    'notifications', json_build_object(
+      'emailNotifications', true,
+      'pushNotifications', true,
+      'moderationAlerts', true,
+      'systemAlerts', true,
+      'weeklyReports', true
+    ),
+    'security', json_build_object(
+      'twoFactorRequired', false,
+      'sessionTimeout', 24,
+      'maxLoginAttempts', 5,
+      'passwordMinLength', 8,
+      'ipWhitelist', json_build_array()
+    )
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- ADMIN LOGGING
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS admin_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  admin_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  target_type TEXT,
+  target_id UUID,
+  old_values JSONB,
+  new_values JSONB,
+  ip_address TEXT,
+  user_agent TEXT,
+  details JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE OR REPLACE FUNCTION log_admin_action(
+  admin_id_param TEXT,
+  action_param TEXT,
+  target_type_param TEXT,
+  target_id_param UUID,
+  old_values_param JSONB,
+  new_values_param JSONB,
+  ip_address_param TEXT,
+  user_agent_param TEXT,
+  details_param JSONB
+)
+RETURNS UUID AS $$
+DECLARE
+  log_id UUID;
+BEGIN
+  INSERT INTO admin_logs (
+    admin_id, action, target_type, target_id, old_values, new_values, 
+    ip_address, user_agent, details
+  ) VALUES (
+    admin_id_param, action_param, target_type_param, target_id_param,
+    old_values_param, new_values_param, ip_address_param, user_agent_param, details_param
+  ) RETURNING id INTO log_id;
+  
+  RETURN log_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION get_admin_logs(
+  admin_id_filter TEXT,
+  action_filter TEXT,
+  days_back INTEGER,
+  limit_count INTEGER
+)
+RETURNS TABLE(
+  id UUID,
+  admin_id TEXT,
+  action TEXT,
+  target_type TEXT,
+  target_id UUID,
+  old_values JSONB,
+  new_values JSONB,
+  ip_address TEXT,
+  user_agent TEXT,
+  details JSONB,
+  created_at TIMESTAMPTZ
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    al.id,
+    al.admin_id,
+    al.action,
+    al.target_type,
+    al.target_id,
+    al.old_values,
+    al.new_values,
+    al.ip_address,
+    al.user_agent,
+    al.details,
+    al.created_at
+  FROM admin_logs al
+  WHERE 
+    (admin_id_filter IS NULL OR al.admin_id = admin_id_filter)
+    AND (action_filter IS NULL OR al.action = action_filter)
+    AND al.created_at >= NOW() - INTERVAL '1 day' * days_back
+  ORDER BY al.created_at DESC
+  LIMIT limit_count;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =====================================================
+-- ADMIN PROFILES
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS admin_profiles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  email TEXT UNIQUE NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('super_admin', 'content_moderator', 'analytics_viewer', 'user_support')),
+  permissions JSONB DEFAULT '{}',
+  is_active BOOLEAN DEFAULT true,
+  last_login TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE OR REPLACE FUNCTION check_admin_permission(
+  admin_email TEXT,
+  required_permission TEXT
+)
+RETURNS BOOLEAN AS $$
+DECLARE
+  admin_record RECORD;
+BEGIN
+  SELECT * INTO admin_record 
+  FROM admin_profiles 
+  WHERE email = admin_email AND is_active = true;
+  
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+  
+  IF admin_record.role = 'super_admin' THEN
+    RETURN true;
+  END IF;
+  
+  RETURN (admin_record.permissions->>required_permission)::BOOLEAN = true;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Grant permissions
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO service_role;
+GRANT USAGE ON SCHEMA public TO service_role;
