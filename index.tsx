@@ -3,15 +3,17 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert, Linking } from 'react-
 import { WebView } from 'react-native-webview';
 import { useAuth } from '@/contexts/AuthContext';
 import { useVideoStore } from '@/store/videoStore';
-import { watchVideo, triggerPeriodicCleanup } from '@/lib/supabase';
+import { watchVideo } from '@/lib/supabase';
 import GlobalHeader from '@/components/GlobalHeader';
 import { ExternalLink } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { AppState } from 'react-native';
 import { useRealtimeVideoUpdates } from '@/hooks/useRealtimeVideoUpdates';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function ViewTab() {
   const { user, profile, refreshProfile } = useAuth();
+  const { colors, isDark } = useTheme();
   const { videoQueue, currentVideoIndex, isLoading, error: storeError, fetchVideos, getCurrentVideo, moveToNextVideo, refreshQueue } = useVideoStore();
   const [menuVisible, setMenuVisible] = useState(false);
   const [watchTimer, setWatchTimer] = useState(0);
@@ -554,15 +556,23 @@ export default function ViewTab() {
     `;
   }, []);
 
+  const shouldResumeOnFocus = useRef(false);
+
   useFocusEffect(
     useCallback(() => {
-      if (user) {
-        console.log('🔄 Focus effect triggered, fetching videos for user:', user.id);
+      if (user && videoQueue.length === 0) {
         fetchVideos(user.id).catch(error => {
           console.error('❌ Error fetching videos in focus effect:', error);
         });
       }
-    }, [fetchVideos]) // Removed 'user' dependency to prevent re-triggering on profile refresh
+      // Set flag to resume on focus
+      shouldResumeOnFocus.current = true;
+      // Try to resume immediately if possible
+      if (webViewRef.current && videoLoadedRef.current && !isVideoPlayingRef.current) {
+        webViewRef.current.postMessage(JSON.stringify({ type: 'forcePlay' }));
+        shouldResumeOnFocus.current = false;
+      }
+    }, [fetchVideos, user, videoQueue.length])
   );
 
   // Add smooth video transition state
@@ -577,18 +587,24 @@ export default function ViewTab() {
     
     try {
       // Process reward first using the new watchVideo function
-      const result = await watchVideo(user.id, currentVideo.video_id, watchTimerRef.current, true);
-      if (result.error) throw new Error(result.error.message);
-      if (!result.data?.success) throw new Error(result.data?.error || 'Failed to process video watch');
+      const result = await watchVideo(user.id, currentVideo.video_id, watchTimerRef.current || 0, false);
+      
+      if (result.error) {
+        console.error('Error processing video watch:', result.error);
+        throw new Error(result.error.message || 'Failed to process video watch');
+      }
+      
+      if (!result.data?.success) {
+        console.error('Video watch failed:', result.data?.error);
+        throw new Error(result.data?.error || 'Failed to process video watch');
+      }
       
       await refreshProfile();
       
       // Show completion status if video reached target
       if (result.data.video_completed) {
-        console.log('🎯 Video completed! Target views reached for video:', currentVideo.video_id);
+        console.log('Video completed! Target views reached for video:', currentVideo.video_id);
       }
-      
-            console.log('💰 Reward processed. Video:', currentVideo.video_id, 'Coins awarded:', result.data.coins_awarded);
       
       // Move to next video immediately after processing reward
       console.log('⏭️ Moving to next video after reward processing');
@@ -610,7 +626,7 @@ export default function ViewTab() {
         setIsVideoTransitioning(false);
       }
     } catch (error) {
-      console.error('Error processing reward:', error);
+      console.error('❌ Error processing reward:', error);
       setIsVideoTransitioning(false);
     }
   };
@@ -919,6 +935,13 @@ export default function ViewTab() {
               }
             }
           }, 5000) as NodeJS.Timeout;
+
+          if (shouldResumeOnFocus.current && !isVideoPlayingRef.current) {
+            if (webViewRef.current) {
+              webViewRef.current.postMessage(JSON.stringify({ type: 'forcePlay' }));
+              shouldResumeOnFocus.current = false;
+            }
+          }
           
           break;
 
@@ -994,6 +1017,13 @@ export default function ViewTab() {
           isVideoPlayingRef.current = false;
           setTimerPaused(true);
           timerPausedRef.current = true;
+
+          if (shouldResumeOnFocus.current && !isVideoPlayingRef.current) {
+            if (webViewRef.current) {
+              webViewRef.current.postMessage(JSON.stringify({ type: 'forcePlay' }));
+              shouldResumeOnFocus.current = false;
+            }
+          }
           break;
           
         case 'videoEnded':
@@ -1132,7 +1162,7 @@ export default function ViewTab() {
   if (isLoading) {
     console.log('📱 View tab showing loading state');
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <GlobalHeader 
           title="View" 
           showCoinDisplay={true}
@@ -1140,12 +1170,12 @@ export default function ViewTab() {
           setMenuVisible={setMenuVisible} 
         />
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading videos...</Text>
+          <Text style={[styles.loadingText, { color: colors.text }]}>Loading videos...</Text>
           {storeError && (
-            <Text style={styles.errorText}>Error: {storeError}</Text>
+            <Text style={[styles.errorText, { color: colors.error }]}>Error: {storeError}</Text>
           )}
           <TouchableOpacity 
-            style={styles.retryButton}
+            style={[styles.retryButton, { backgroundColor: colors.primary }]}
             onPress={() => user && fetchVideos(user.id)}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
@@ -1158,7 +1188,7 @@ export default function ViewTab() {
   if (!currentVideo) {
     console.log('📱 No current video available, queue length:', videoQueue.length);
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         <GlobalHeader 
           title="View" 
           showCoinDisplay={true}
@@ -1166,17 +1196,17 @@ export default function ViewTab() {
           setMenuVisible={setMenuVisible} 
         />
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
+          <Text style={[styles.emptyText, { color: colors.text }]}>
             {videoQueue.length === 0 ? 'No videos available' : 'Loading next video...'}
           </Text>
           <TouchableOpacity 
-            style={styles.refreshButton}
+            style={[styles.refreshButton, { backgroundColor: colors.primary }]}
             onPress={() => user && fetchVideos(user.id)}
           >
             <Text style={styles.refreshButtonText}>Refresh</Text>
           </TouchableOpacity>
           {storeError && (
-            <Text style={styles.errorText}>Error: {storeError}</Text>
+            <Text style={[styles.errorText, { color: colors.error }]}>Error: {storeError}</Text>
           )}
         </View>
       </View>
@@ -1186,7 +1216,7 @@ export default function ViewTab() {
   const buttonState = getButtonState();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <GlobalHeader 
         title="View" 
         showCoinDisplay={true}
@@ -1238,43 +1268,52 @@ export default function ViewTab() {
         />
       </View>
 
-      <View style={styles.controlsContainer}>
-        <View style={styles.youtubeButtonContainer}>
+      <View style={[styles.controlsContainer, { backgroundColor: colors.background }]}>
+        <View style={[styles.youtubeButtonContainer, { backgroundColor: colors.surface }]}>
           <ExternalLink size={20} color="#FF0000" />
           <TouchableOpacity onPress={handleOpenYouTube} style={styles.youtubeTextButton}>
-            <Text style={styles.youtubeButtonText}>Open on YouTube</Text>
+            <Text style={[styles.youtubeButtonText, { color: colors.text }]}>Open on YouTube</Text>
           </TouchableOpacity>
           <View style={styles.autoPlayContainer}>
-            <Text style={styles.autoPlayText}>Auto Skip</Text>
+            <Text style={[styles.autoPlayText, { color: colors.textSecondary }]}>Auto Skip</Text>
             <TouchableOpacity 
-              style={styles.toggle} 
+              style={[styles.toggle, { backgroundColor: colors.border }]} 
               onPress={() => setAutoSkipEnabled(!autoSkipEnabled)}
             >
-              <View style={[styles.toggleSlider, autoSkipEnabled && styles.toggleActive]} />
+              <View style={[
+                styles.toggleSlider, 
+                autoSkipEnabled && [styles.toggleActive, { backgroundColor: colors.success }]
+              ]} />
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, isProcessingReward && styles.statNumberProcessing]}>
+            <Text style={[
+              styles.statNumber, 
+              { color: colors.text },
+              isProcessingReward && [styles.statNumberProcessing, { color: colors.warning }]
+            ]}>
               {isProcessingReward ? '⏳' : getRemainingTime()}
             </Text>
-            <Text style={styles.statLabel}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
               {isProcessingReward ? 'Processing...' : 'Seconds to earn coins'}
             </Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, isProcessingReward && styles.statNumberProcessing]}>
+            <Text style={[
+              styles.statNumber, 
+              { color: colors.text },
+              isProcessingReward && [styles.statNumberProcessing, { color: colors.warning }]
+            ]}>
               {isProcessingReward ? '⏳' : (currentVideo?.coin_reward || '?')}
             </Text>
-            <Text style={styles.statLabel}>
+            <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
               {isProcessingReward ? 'Processing...' : 'Coins to earn'}
             </Text>
           </View>
         </View>
-
-
 
         <TouchableOpacity 
           style={[styles.skipButtonBase, buttonState.style]}
@@ -1293,7 +1332,6 @@ export default function ViewTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
   },
   loadingContainer: {
     flex: 1,
@@ -1302,7 +1340,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 18,
-    color: '#666',
   },
   emptyContainer: {
     flex: 1,
@@ -1312,12 +1349,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: '#666',
     textAlign: 'center',
     marginBottom: 20,
   },
   refreshButton: {
-    backgroundColor: '#6C5CE7',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -1346,7 +1381,6 @@ const styles = StyleSheet.create({
   webViewTransitioning: {
     opacity: 0.6,
   },
-
   controlsContainer: {
     flex: 1,
     padding: 20,
@@ -1354,7 +1388,6 @@ const styles = StyleSheet.create({
   youtubeButtonContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
@@ -1372,7 +1405,6 @@ const styles = StyleSheet.create({
   },
   youtubeButtonText: {
     fontSize: 16,
-    color: '#333',
     fontWeight: '500',
   },
   autoPlayContainer: {
@@ -1381,14 +1413,12 @@ const styles = StyleSheet.create({
   },
   autoPlayText: {
     fontSize: 14,
-    color: '#666',
     marginRight: 8,
     fontWeight: '500',
   },
   toggle: {
     width: 50,
     height: 24,
-    backgroundColor: '#E0E0E0',
     borderRadius: 12,
     justifyContent: 'center',
     padding: 2,
@@ -1405,7 +1435,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   toggleActive: {
-    backgroundColor: '#00D4AA',
     alignSelf: 'flex-end',
   },
   statsContainer: {
@@ -1419,18 +1448,15 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: '#333',
   },
   statNumberProcessing: {
-    color: '#FF9500',
+    // Color will be applied dynamically
   },
   statLabel: {
     fontSize: 14,
-    color: '#666',
     textAlign: 'center',
     marginTop: 4,
   },
-
   skipButtonBase: {
     paddingVertical: 16,
     borderRadius: 12,
@@ -1467,12 +1493,10 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    color: '#E74C3C',
     textAlign: 'center',
     marginTop: 8,
   },
   retryButton: {
-    backgroundColor: '#3498DB',
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -1481,6 +1505,24 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: 'white',
     fontSize: 14,
+    fontWeight: '600',
+  },
+  testButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  testButtonText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: '600',
   },
 });
