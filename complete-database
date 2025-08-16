@@ -1,6 +1,6 @@
 -- VidGro Database Backup (Server-Side)
--- Created: 2025-08-10T17:43:54.640Z
--- Type: complete
+-- Created: 2025-08-16T15:28:02.941Z
+-- Type: full
 -- Tables: profiles, videos, transactions, bug_reports, runtime_config, system_settings, admin_logs, video_deletions
 -- Database: https://kuibswqfmhhdybttbcoa.supabase.co
 -- Connection: postgresql://postgres:[Vidgro@12345]@db.kuibswqfmhhdybttbcoa.supabase.co:5432/postgres
@@ -36,10 +36,9 @@ CREATE INDEX IF NOT EXISTS "profiles_referral_code_key" ON "profiles" ("referral
 CREATE INDEX IF NOT EXISTS "profiles_username_key" ON "profiles" ("username");
 
 -- Data for profiles
-INSERT INTO "profiles" ("id", "email", "username", "coins", "is_vip", "vip_expires_at", "referral_code", "referred_by", "created_at", "updated_at") VALUES ('67fa0f44-7d82-43eb-a7ae-2588b464a8c2', 'bbb@gmail.com', 'bbb', 445, false, NULL, 'nqn/XUsj', NULL, '2025-07-30T15:34:15.193523+00:00', '2025-07-30T16:50:45.185036+00:00');
 INSERT INTO "profiles" ("id", "email", "username", "coins", "is_vip", "vip_expires_at", "referral_code", "referred_by", "created_at", "updated_at") VALUES ('ea7d018c-7182-4bdc-817e-47918ad7882b', 'abc@gmail.com', 'abc', 999643, false, NULL, 'f+VBA9oi', NULL, '2025-07-29T10:29:07.484491+00:00', '2025-08-06T15:17:03.604953+00:00');
-INSERT INTO "profiles" ("id", "email", "username", "coins", "is_vip", "vip_expires_at", "referral_code", "referred_by", "created_at", "updated_at") VALUES ('1474e9c3-38ce-49e7-a468-27108146aaf3', 'ccc@gmail.com', 'cccc', 2957, false, NULL, 'sFDRl01Y', NULL, '2025-08-09T21:23:11.230615+00:00', '2025-08-09T22:52:27.462175+00:00');
 INSERT INTO "profiles" ("id", "email", "username", "coins", "is_vip", "vip_expires_at", "referral_code", "referred_by", "created_at", "updated_at") VALUES ('5d8618ad-f651-4fe4-aabd-d7fdcb980897', 'demo@gmail.com', 'demi', 13761, false, NULL, '8BpIejT9', NULL, '2025-07-29T14:57:51.286542+00:00', '2025-08-10T14:20:41.15197+00:00');
+INSERT INTO "profiles" ("id", "email", "username", "coins", "is_vip", "vip_expires_at", "referral_code", "referred_by", "created_at", "updated_at") VALUES ('1474e9c3-38ce-49e7-a468-27108146aaf3', 'ccc@gmail.com', 'cccc', 228512, false, NULL, 'sFDRl01Y', NULL, '2025-08-09T21:23:11.230615+00:00', '2025-08-09T22:52:27.462175+00:00');
 
 -- Table structure for videos
 -- Warning: Could not get table structure for videos
@@ -83,13 +82,14 @@ CREATE TABLE IF NOT EXISTS "transactions" (
 
 -- Indexes for transactions
 CREATE INDEX IF NOT EXISTS "idx_transactions_created_at" ON "transactions" ("created_at");
-CREATE INDEX IF NOT EXISTS "idx_transactions_type" ON "transactions" ("type");
+CREATE INDEX IF NOT EXISTS "idx_transactions_transaction_id" ON "transactions" ("transaction_id");
+CREATE INDEX IF NOT EXISTS "idx_transactions_type" ON "transactions" ("transaction_type");
 CREATE INDEX IF NOT EXISTS "idx_transactions_user_id" ON "transactions" ("user_id");
+CREATE INDEX IF NOT EXISTS "transactions_transaction_id_key" ON "transactions" ("transaction_id");
 
 -- Data for transactions
-INSERT INTO "transactions" ("id", "user_id", "type", "amount", "description", "reference_id", "reference_type", "status", "created_at", "updated_at") VALUES ('b5a76b30-2b93-440e-9cb0-599f54210879', '67fa0f44-7d82-43eb-a7ae-2588b464a8c2', 'purchase', 100, 'Video promotion', NULL, NULL, 'completed', '2025-08-10T14:42:47.794713+00:00', '2025-08-10T14:42:47.794713+00:00');
-INSERT INTO "transactions" ("id", "user_id", "type", "amount", "description", "reference_id", "reference_type", "status", "created_at", "updated_at") VALUES ('167ddc5d-26f6-4300-bd75-19a1d398d476', '67fa0f44-7d82-43eb-a7ae-2588b464a8c2', 'earn', 50, 'Video completion reward', NULL, NULL, 'completed', '2025-08-10T14:42:47.794713+00:00', '2025-08-10T14:42:47.794713+00:00');
-INSERT INTO "transactions" ("id", "user_id", "type", "amount", "description", "reference_id", "reference_type", "status", "created_at", "updated_at") VALUES ('66d0fc43-fad2-4f47-9ed1-5b49aa7b8ee8', '67fa0f44-7d82-43eb-a7ae-2588b464a8c2', 'bonus', 25, 'Welcome bonus', NULL, NULL, 'completed', '2025-08-10T14:42:47.794713+00:00', '2025-08-10T14:42:47.794713+00:00');
+INSERT INTO "transactions" ("id", "transaction_id", "user_id", "transaction_type", "amount", "description", "admin_id", "metadata", "created_at", "updated_at") VALUES ('c09c08f9-262d-4734-b659-91ee178bccd3', 'tx_1755342631.861635_96d0da2f', 'ea7d018c-7182-4bdc-817e-47918ad7882b', 'bonus', 846, 'Daily login bonus', NULL, [object Object], '2025-08-16T11:10:31.861635+00:00', '2025-08-16T11:10:31.861635+00:00');
+INSERT INTO "transactions" ("id", "transaction_id", "user_id", "transaction_type", "amount", "description", "admin_id", "metadata", "created_at", "updated_at") VALUES ('7fc58bc5-bae5-49a1-84d6-5e2d464c8e51', 'tx_1755342631.861635_01066ed3', '5d8618ad-f651-4fe4-aabd-d7fdcb980897', 'bonus', -224, 'Video promotion payment', NULL, [object Object], '2025-08-16T11:10:31.861635+00:00', '2025-08-16T11:10:31.861635+00:00');
 
 -- Table structure for bug_reports
 -- Warning: Could not get table structure for bug_reports
@@ -174,6 +174,14 @@ CREATE TABLE IF NOT EXISTS "admin_logs" (
 -- Data for admin_logs
 INSERT INTO "admin_logs" ("id", "admin_id", "action", "target_type", "target_id", "old_values", "new_values", "ip_address", "user_agent", "details", "created_at") VALUES ('ae48bdd0-139f-48f4-9da8-fca7a2af42d3', 'system', 'create_admin', 'admin_profile', '9658e918-3d0b-4ab6-b839-ec62e769e497', NULL, [object Object], 'admin_panel', 'admin_panel', [object Object], '2025-08-02T16:30:58.883685+00:00');
 INSERT INTO "admin_logs" ("id", "admin_id", "action", "target_type", "target_id", "old_values", "new_values", "ip_address", "user_agent", "details", "created_at") VALUES ('38a10120-fde1-4f54-a000-fcfabead2766', 'system', 'create_admin', 'admin_profile', '170245f1-7600-4eb0-a65b-68ce3937b017', NULL, [object Object], 'admin_panel', 'admin_panel', [object Object], '2025-08-02T16:39:14.567021+00:00');
+INSERT INTO "admin_logs" ("id", "admin_id", "action", "target_type", "target_id", "old_values", "new_values", "ip_address", "user_agent", "details", "created_at") VALUES ('a90e3b84-6d32-4ec3-bf07-f664b9b15bb9', 'admin', 'toggle_vip', 'user', '1474e9c3-38ce-49e7-a468-27108146aaf3', [object Object], [object Object], NULL, NULL, [object Object], '2025-08-15T17:42:34.082747+00:00');
+INSERT INTO "admin_logs" ("id", "admin_id", "action", "target_type", "target_id", "old_values", "new_values", "ip_address", "user_agent", "details", "created_at") VALUES ('a8076076-9934-4287-98b9-8f92fae4e348', 'admin', 'toggle_vip', 'user', '1474e9c3-38ce-49e7-a468-27108146aaf3', [object Object], [object Object], NULL, NULL, [object Object], '2025-08-15T17:42:36.685549+00:00');
+INSERT INTO "admin_logs" ("id", "admin_id", "action", "target_type", "target_id", "old_values", "new_values", "ip_address", "user_agent", "details", "created_at") VALUES ('b10b9414-fb10-4ac9-9f0a-d1da0f91a614', 'admin', 'toggle_vip', 'user', '1474e9c3-38ce-49e7-a468-27108146aaf3', [object Object], [object Object], NULL, NULL, [object Object], '2025-08-15T19:02:49.430913+00:00');
+INSERT INTO "admin_logs" ("id", "admin_id", "action", "target_type", "target_id", "old_values", "new_values", "ip_address", "user_agent", "details", "created_at") VALUES ('f2b65a99-e814-450a-8eec-3d53ce957bc0', 'admin', 'toggle_vip', 'user', '1474e9c3-38ce-49e7-a468-27108146aaf3', [object Object], [object Object], NULL, NULL, [object Object], '2025-08-15T19:02:55.652332+00:00');
+INSERT INTO "admin_logs" ("id", "admin_id", "action", "target_type", "target_id", "old_values", "new_values", "ip_address", "user_agent", "details", "created_at") VALUES ('7450d0da-f1d1-499b-aab5-d8894e58775b', 'admin', 'toggle_vip', 'user', '1474e9c3-38ce-49e7-a468-27108146aaf3', [object Object], [object Object], NULL, NULL, [object Object], '2025-08-15T19:06:46.763541+00:00');
+INSERT INTO "admin_logs" ("id", "admin_id", "action", "target_type", "target_id", "old_values", "new_values", "ip_address", "user_agent", "details", "created_at") VALUES ('6c19d08d-bb5e-4185-bada-e5f6bc1ab3ab', 'admin', 'toggle_vip', 'user', '1474e9c3-38ce-49e7-a468-27108146aaf3', [object Object], [object Object], NULL, NULL, [object Object], '2025-08-15T19:07:03.568946+00:00');
+INSERT INTO "admin_logs" ("id", "admin_id", "action", "target_type", "target_id", "old_values", "new_values", "ip_address", "user_agent", "details", "created_at") VALUES ('66994277-3721-4aba-8a4e-81a977348e19', 'admin', 'adjust_coins', 'user', '1474e9c3-38ce-49e7-a468-27108146aaf3', [object Object], [object Object], NULL, NULL, [object Object], '2025-08-15T19:12:41.924949+00:00');
+INSERT INTO "admin_logs" ("id", "admin_id", "action", "target_type", "target_id", "old_values", "new_values", "ip_address", "user_agent", "details", "created_at") VALUES ('c6425e20-bdb0-4334-a607-0a4279ee152f', 'admin', 'adjust_coins', 'user', '1474e9c3-38ce-49e7-a468-27108146aaf3', [object Object], [object Object], NULL, NULL, [object Object], '2025-08-15T19:12:53.543632+00:00');
 
 -- Table structure for video_deletions
 -- Warning: Could not get table structure for video_deletions
@@ -214,7 +222,8 @@ CREATE POLICY "Users can read all videos" ON "videos" FOR SELECT USING (true);
 CREATE POLICY "Users can update own videos" ON "videos" FOR UPDATE USING ((auth.uid() = user_id));
 
 -- RLS Policies for transactions
-CREATE POLICY "Allow all operations on transactions" ON "transactions" FOR ALL USING (true);
+CREATE POLICY "Service role can access all transactions" ON "transactions" FOR ALL USING (true);
+CREATE POLICY "Users can read own transactions" ON "transactions" FOR SELECT USING ((auth.uid() = user_id));
 
 -- RLS Policies for runtime_config
 CREATE POLICY "Admins can manage runtime config" ON "runtime_config" FOR ALL USING (true);
@@ -372,6 +381,13 @@ BEGIN
 END;
 ';
 
+CREATE OR REPLACE FUNCTION update_updated_at_column() RETURNS trigger LANGUAGE plpgsql AS '
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+';
+
 CREATE OR REPLACE FUNCTION investigate_video_trigger() RETURNS TABLE(trigger_name text, trigger_timing text, trigger_event text, trigger_function text, is_enabled boolean) LANGUAGE plpgsql AS '
 BEGIN
   RETURN QUERY 
@@ -401,6 +417,149 @@ BEGIN
     LOOP
         EXECUTE ''ALTER TABLE "'' || table_record.tablename || ''" ENABLE ROW LEVEL SECURITY;'';
     END LOOP;
+END;
+';
+
+CREATE OR REPLACE FUNCTION update_security_events_updated_at() RETURNS trigger LANGUAGE plpgsql AS '
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+';
+
+CREATE OR REPLACE FUNCTION update_bug_report_updated_at() RETURNS trigger LANGUAGE plpgsql AS '
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+';
+
+CREATE OR REPLACE FUNCTION assign_bug_report(p_bug_id text, p_assigned_to text) RETURNS TABLE(success boolean, message text) LANGUAGE plpgsql AS '
+BEGIN
+  -- Update bug report assignment
+  UPDATE bug_reports 
+  SET 
+    assigned_to = p_assigned_to,
+    updated_at = NOW()
+  WHERE bug_id = p_bug_id;
+  
+  IF FOUND THEN
+    RETURN QUERY SELECT true, ''Bug report assigned successfully'';
+  ELSE
+    RETURN QUERY SELECT false, ''Bug report not found'';
+  END IF;
+  
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN QUERY SELECT false, ''Failed to assign bug report: '' || SQLERRM;
+END;
+';
+
+CREATE OR REPLACE FUNCTION check_videos_table_permissions() RETURNS TABLE(permission_type text, is_allowed boolean, role_name text, additional_info text) LANGUAGE plpgsql AS '
+BEGIN
+  RETURN QUERY 
+  SELECT 
+    ''INSERT''::TEXT, 
+    (SELECT COUNT(*) > 0 FROM information_schema.table_privileges 
+     WHERE table_name = ''videos'' AND privilege_type = ''INSERT'' AND grantee = CURRENT_USER),
+    CURRENT_USER,
+    ''Ability to insert rows into videos table''
+  UNION ALL
+  SELECT 
+    ''UPDATE''::TEXT, 
+    (SELECT COUNT(*) > 0 FROM information_schema.table_privileges 
+     WHERE table_name = ''videos'' AND privilege_type = ''UPDATE'' AND grantee = CURRENT_USER),
+    CURRENT_USER,
+    ''Ability to update rows in videos table''
+  UNION ALL
+  SELECT 
+    ''RLS Enabled''::TEXT, 
+    (SELECT relrowsecurity FROM pg_class WHERE relname = ''videos''),
+    CURRENT_USER,
+    ''Whether Row Level Security is enabled''
+  UNION ALL
+  SELECT 
+    ''RLS Policies''::TEXT, 
+    (SELECT COUNT(*) > 0 FROM pg_policies WHERE tablename = ''videos''),
+    CURRENT_USER,
+    ''Number of RLS policies on videos table''
+  UNION ALL
+  SELECT 
+    ''Current Role Policies''::TEXT, 
+    (SELECT COUNT(*) > 0 FROM pg_policies 
+     WHERE tablename = ''videos'' AND roles @> ARRAY[CURRENT_USER]),
+    CURRENT_USER,
+    ''Policies applicable to current role'';
+END;
+';
+
+CREATE OR REPLACE FUNCTION prevent_owner_metrics_update() RETURNS trigger LANGUAGE plpgsql AS '
+BEGIN
+  -- This trigger serves as an additional safety net
+  -- It should never be needed if functions are called correctly
+  -- but provides extra protection against accidental owner metric updates
+  
+  -- For any direct UPDATE attempts on videos table,
+  -- log a warning if someone tries to update metrics inappropriately
+  IF TG_OP = ''UPDATE'' THEN
+    -- Log any suspicious metric updates (for debugging)
+    IF OLD.views_count != NEW.views_count OR 
+       OLD.total_watch_time != NEW.total_watch_time THEN
+      -- This is just a safety net - normal operations should prevent this
+      RAISE LOG ''Video metrics updated for video_id: %, views: % -> %, watch_time: % -> %'',
+        NEW.id, OLD.views_count, NEW.views_count, OLD.total_watch_time, NEW.total_watch_time;
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+';
+
+CREATE OR REPLACE FUNCTION admin_update_user_vip_status(user_uuid uuid, is_vip boolean, vip_duration_days integer, admin_id text) RETURNS json LANGUAGE plpgsql AS '
+DECLARE
+  user_record RECORD;
+BEGIN
+  SELECT * INTO user_record FROM profiles WHERE id = user_uuid;
+  
+  IF NOT FOUND THEN
+    RETURN json_build_object(''success'', false, ''error'', ''User not found'');
+  END IF;
+  
+  UPDATE profiles 
+  SET 
+    is_vip = is_vip,
+    vip_expires_at = CASE 
+      WHEN is_vip THEN NOW() + INTERVAL ''1 day'' * vip_duration_days
+      ELSE NULL
+    END,
+    updated_at = NOW()
+  WHERE id = user_uuid;
+  
+  RETURN json_build_object(
+    ''success'', true,
+    ''is_vip'', is_vip,
+    ''vip_expires_at'', CASE 
+      WHEN is_vip THEN NOW() + INTERVAL ''1 day'' * vip_duration_days
+      ELSE NULL
+    END,
+    ''message'', ''User VIP status updated successfully''
+  );
+END;
+';
+
+CREATE OR REPLACE FUNCTION log_admin_action(admin_id_param text, action_param text, target_type_param text, target_id_param uuid, old_values_param jsonb, new_values_param jsonb, ip_address_param text, user_agent_param text, details_param jsonb) RETURNS uuid LANGUAGE plpgsql AS '
+DECLARE
+  log_id UUID;
+BEGIN
+  INSERT INTO admin_logs (
+    admin_id, action, target_type, target_id, old_values, new_values, 
+    ip_address, user_agent, details
+  ) VALUES (
+    admin_id_param, action_param, target_type_param, target_id_param,
+    old_values_param, new_values_param, ip_address_param, user_agent_param, details_param
+  ) RETURNING id INTO log_id;
+  
+  RETURN log_id;
 END;
 ';
 
@@ -499,34 +658,6 @@ EXCEPTION
 END;
 ';
 
-CREATE OR REPLACE FUNCTION update_bug_report_updated_at() RETURNS trigger LANGUAGE plpgsql AS '
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-';
-
-CREATE OR REPLACE FUNCTION assign_bug_report(p_bug_id text, p_assigned_to text) RETURNS TABLE(success boolean, message text) LANGUAGE plpgsql AS '
-BEGIN
-  -- Update bug report assignment
-  UPDATE bug_reports 
-  SET 
-    assigned_to = p_assigned_to,
-    updated_at = NOW()
-  WHERE bug_id = p_bug_id;
-  
-  IF FOUND THEN
-    RETURN QUERY SELECT true, ''Bug report assigned successfully'';
-  ELSE
-    RETURN QUERY SELECT false, ''Bug report not found'';
-  END IF;
-  
-EXCEPTION
-  WHEN OTHERS THEN
-    RETURN QUERY SELECT false, ''Failed to assign bug report: '' || SQLERRM;
-END;
-';
-
 CREATE OR REPLACE FUNCTION insert_bug_report_from_mobile(p_title text, p_description text, p_priority text, p_category text, p_user_id uuid, p_user_email text, p_device_info jsonb, p_app_version text, p_issue_type text) RETURNS TABLE(bug_id text, success boolean, message text, estimated_response_time text) LANGUAGE plpgsql AS '
 DECLARE
   v_bug_id TEXT;
@@ -618,186 +749,6 @@ EXCEPTION
 END;
 ';
 
-CREATE OR REPLACE FUNCTION check_videos_table_permissions() RETURNS TABLE(permission_type text, is_allowed boolean, role_name text, additional_info text) LANGUAGE plpgsql AS '
-BEGIN
-  RETURN QUERY 
-  SELECT 
-    ''INSERT''::TEXT, 
-    (SELECT COUNT(*) > 0 FROM information_schema.table_privileges 
-     WHERE table_name = ''videos'' AND privilege_type = ''INSERT'' AND grantee = CURRENT_USER),
-    CURRENT_USER,
-    ''Ability to insert rows into videos table''
-  UNION ALL
-  SELECT 
-    ''UPDATE''::TEXT, 
-    (SELECT COUNT(*) > 0 FROM information_schema.table_privileges 
-     WHERE table_name = ''videos'' AND privilege_type = ''UPDATE'' AND grantee = CURRENT_USER),
-    CURRENT_USER,
-    ''Ability to update rows in videos table''
-  UNION ALL
-  SELECT 
-    ''RLS Enabled''::TEXT, 
-    (SELECT relrowsecurity FROM pg_class WHERE relname = ''videos''),
-    CURRENT_USER,
-    ''Whether Row Level Security is enabled''
-  UNION ALL
-  SELECT 
-    ''RLS Policies''::TEXT, 
-    (SELECT COUNT(*) > 0 FROM pg_policies WHERE tablename = ''videos''),
-    CURRENT_USER,
-    ''Number of RLS policies on videos table''
-  UNION ALL
-  SELECT 
-    ''Current Role Policies''::TEXT, 
-    (SELECT COUNT(*) > 0 FROM pg_policies 
-     WHERE tablename = ''videos'' AND roles @> ARRAY[CURRENT_USER]),
-    CURRENT_USER,
-    ''Policies applicable to current role'';
-END;
-';
-
-CREATE OR REPLACE FUNCTION prevent_owner_metrics_update() RETURNS trigger LANGUAGE plpgsql AS '
-BEGIN
-  -- This trigger serves as an additional safety net
-  -- It should never be needed if functions are called correctly
-  -- but provides extra protection against accidental owner metric updates
-  
-  -- For any direct UPDATE attempts on videos table,
-  -- log a warning if someone tries to update metrics inappropriately
-  IF TG_OP = ''UPDATE'' THEN
-    -- Log any suspicious metric updates (for debugging)
-    IF OLD.views_count != NEW.views_count OR 
-       OLD.total_watch_time != NEW.total_watch_time THEN
-      -- This is just a safety net - normal operations should prevent this
-      RAISE LOG ''Video metrics updated for video_id: %, views: % -> %, watch_time: % -> %'',
-        NEW.id, OLD.views_count, NEW.views_count, OLD.total_watch_time, NEW.total_watch_time;
-    END IF;
-  END IF;
-  
-  RETURN NEW;
-END;
-';
-
-CREATE OR REPLACE FUNCTION handle_new_user() RETURNS trigger LANGUAGE plpgsql AS '
-DECLARE
-  new_username TEXT;
-BEGIN
-  -- Generate a unique username
-  new_username := COALESCE(
-    NEW.raw_user_meta_data->>''username'', 
-    ''user_'' || substr(NEW.id::text, 1, 8)
-  );
-  
-  -- Ensure username is unique by appending a number if needed
-  WHILE EXISTS (SELECT 1 FROM profiles WHERE username = new_username) LOOP
-    new_username := COALESCE(NEW.raw_user_meta_data->>''username'', ''user'') || ''_'' || substr(NEW.id::text, 1, 8) || ''_'' || floor(random() * 1000)::text;
-  END LOOP;
-  
-  -- Insert the profile with proper error handling
-  INSERT INTO profiles (id, email, username, coins, created_at, updated_at)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    new_username,
-    100, -- Starting coins
-    NOW(),
-    NOW()
-  )
-  ON CONFLICT (id) DO NOTHING; -- Prevent duplicate insertions
-  
-  RETURN NEW;
-EXCEPTION
-  WHEN others THEN
-    -- Log the error but don''t fail the user creation
-    RAISE WARNING ''Failed to create profile for user % (email: %): %'', NEW.id, NEW.email, SQLERRM;
-    
-    -- Try a simpler insert as fallback
-    BEGIN
-      INSERT INTO profiles (id, email, username)
-      VALUES (
-        NEW.id,
-        COALESCE(NEW.email, ''user@example.com''),
-        ''user_'' || substr(NEW.id::text, 1, 8) || ''_'' || extract(epoch from now())::bigint
-      )
-      ON CONFLICT (id) DO NOTHING;
-    EXCEPTION
-      WHEN others THEN
-        RAISE WARNING ''Fallback profile creation also failed for user %: %'', NEW.id, SQLERRM;
-    END;
-    
-    RETURN NEW;
-END;
-';
-
-CREATE OR REPLACE FUNCTION check_and_update_expired_holds() RETURNS integer LANGUAGE plpgsql AS '
-DECLARE
-  updated_count INTEGER;
-BEGIN
-  -- Update videos from on_hold to active if hold_until has passed
-  UPDATE videos 
-  SET status = ''active'', updated_at = NOW()
-  WHERE status = ''on_hold'' 
-  AND hold_until <= NOW()
-  AND completed = FALSE;
-  
-  GET DIAGNOSTICS updated_count = ROW_COUNT;
-  
-  RETURN updated_count;
-END;
-';
-
-CREATE OR REPLACE FUNCTION log_admin_action(admin_id_param text, action_param text, target_type_param text, target_id_param uuid, old_values_param jsonb, new_values_param jsonb, ip_address_param text, user_agent_param text, details_param jsonb) RETURNS uuid LANGUAGE plpgsql AS '
-DECLARE
-  log_id UUID;
-BEGIN
-  INSERT INTO admin_logs (
-    admin_id, action, target_type, target_id, old_values, new_values, 
-    ip_address, user_agent, details
-  ) VALUES (
-    admin_id_param, action_param, target_type_param, target_id_param,
-    old_values_param, new_values_param, ip_address_param, user_agent_param, details_param
-  ) RETURNING id INTO log_id;
-  
-  RETURN log_id;
-END;
-';
-
-CREATE OR REPLACE FUNCTION admin_adjust_user_coins(user_uuid uuid, coin_adjustment integer, reason text, admin_id text) RETURNS json LANGUAGE plpgsql AS '
-DECLARE
-  user_record RECORD;
-  new_balance INTEGER;
-BEGIN
-  SELECT * INTO user_record FROM profiles WHERE id = user_uuid;
-  
-  IF NOT FOUND THEN
-    RETURN json_build_object(''success'', false, ''error'', ''User not found'');
-  END IF;
-  
-  new_balance := user_record.coins + coin_adjustment;
-  
-  IF new_balance < 0 THEN
-    RETURN json_build_object(''success'', false, ''error'', ''Insufficient coins for adjustment'');
-  END IF;
-  
-  UPDATE profiles 
-  SET coins = new_balance, updated_at = NOW()
-  WHERE id = user_uuid;
-  
-  INSERT INTO coin_transactions (
-    user_id, amount, transaction_type, description, reference_id
-  ) VALUES (
-    user_uuid, coin_adjustment, ''admin_adjustment'', reason, user_uuid
-  );
-  
-  RETURN json_build_object(
-    ''success'', true,
-    ''new_balance'', new_balance,
-    ''adjustment'', coin_adjustment,
-    ''message'', ''User coins adjusted successfully''
-  );
-END;
-';
-
 CREATE OR REPLACE FUNCTION create_video_promotion(coin_cost_param integer, coin_reward_param integer, duration_seconds_param integer, target_views_param integer, title_param text, user_uuid uuid, youtube_url_param text) RETURNS json LANGUAGE plpgsql AS '
 DECLARE
   user_record RECORD;
@@ -869,6 +820,57 @@ BEGIN
 END;
 ';
 
+CREATE OR REPLACE FUNCTION handle_new_user() RETURNS trigger LANGUAGE plpgsql AS '
+DECLARE
+  new_username TEXT;
+BEGIN
+  -- Generate a unique username
+  new_username := COALESCE(
+    NEW.raw_user_meta_data->>''username'', 
+    ''user_'' || substr(NEW.id::text, 1, 8)
+  );
+  
+  -- Ensure username is unique by appending a number if needed
+  WHILE EXISTS (SELECT 1 FROM profiles WHERE username = new_username) LOOP
+    new_username := COALESCE(NEW.raw_user_meta_data->>''username'', ''user'') || ''_'' || substr(NEW.id::text, 1, 8) || ''_'' || floor(random() * 1000)::text;
+  END LOOP;
+  
+  -- Insert the profile with proper error handling
+  INSERT INTO profiles (id, email, username, coins, created_at, updated_at)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    new_username,
+    100, -- Starting coins
+    NOW(),
+    NOW()
+  )
+  ON CONFLICT (id) DO NOTHING; -- Prevent duplicate insertions
+  
+  RETURN NEW;
+EXCEPTION
+  WHEN others THEN
+    -- Log the error but don''t fail the user creation
+    RAISE WARNING ''Failed to create profile for user % (email: %): %'', NEW.id, NEW.email, SQLERRM;
+    
+    -- Try a simpler insert as fallback
+    BEGIN
+      INSERT INTO profiles (id, email, username)
+      VALUES (
+        NEW.id,
+        COALESCE(NEW.email, ''user@example.com''),
+        ''user_'' || substr(NEW.id::text, 1, 8) || ''_'' || extract(epoch from now())::bigint
+      )
+      ON CONFLICT (id) DO NOTHING;
+    EXCEPTION
+      WHEN others THEN
+        RAISE WARNING ''Fallback profile creation also failed for user %: %'', NEW.id, SQLERRM;
+    END;
+    
+    RETURN NEW;
+END;
+';
+
 CREATE OR REPLACE FUNCTION auto_update_video_status() RETURNS trigger LANGUAGE plpgsql AS '
 BEGIN
   -- Auto-update completion status based on views vs target
@@ -891,10 +893,121 @@ BEGIN
 END;
 ';
 
+CREATE OR REPLACE FUNCTION admin_adjust_user_coins(user_uuid uuid, coin_adjustment integer, reason text, admin_id text) RETURNS json LANGUAGE plpgsql AS '
+DECLARE
+  user_record RECORD;
+  new_balance INTEGER;
+BEGIN
+  SELECT * INTO user_record FROM profiles WHERE id = user_uuid;
+  
+  IF NOT FOUND THEN
+    RETURN json_build_object(''success'', false, ''error'', ''User not found'');
+  END IF;
+  
+  new_balance := user_record.coins + coin_adjustment;
+  
+  IF new_balance < 0 THEN
+    RETURN json_build_object(''success'', false, ''error'', ''Insufficient coins for adjustment'');
+  END IF;
+  
+  UPDATE profiles 
+  SET coins = new_balance, updated_at = NOW()
+  WHERE id = user_uuid;
+  
+  INSERT INTO coin_transactions (
+    user_id, amount, transaction_type, description, reference_id
+  ) VALUES (
+    user_uuid, coin_adjustment, ''admin_adjustment'', reason, user_uuid
+  );
+  
+  RETURN json_build_object(
+    ''success'', true,
+    ''new_balance'', new_balance,
+    ''adjustment'', coin_adjustment,
+    ''message'', ''User coins adjusted successfully''
+  );
+END;
+';
+
+CREATE OR REPLACE FUNCTION admin_update_video_status(video_uuid uuid, new_status text, admin_id text, reason text) RETURNS json LANGUAGE plpgsql AS '
+DECLARE
+  video_record RECORD;
+BEGIN
+  SELECT * INTO video_record FROM videos WHERE id = video_uuid;
+  
+  IF NOT FOUND THEN
+    RETURN json_build_object(''success'', false, ''error'', ''Video not found'');
+  END IF;
+  
+  IF new_status NOT IN (''active'', ''paused'', ''completed'', ''on_hold'', ''repromoted'') THEN
+    RETURN json_build_object(''success'', false, ''error'', ''Invalid status'');
+  END IF;
+  
+  UPDATE videos 
+  SET 
+    status = new_status,
+    updated_at = NOW(),
+    hold_until = CASE WHEN new_status = ''on_hold'' THEN NOW() + INTERVAL ''10 minutes'' ELSE hold_until END,
+    repromoted_at = CASE WHEN new_status = ''repromoted'' THEN NOW() ELSE repromoted_at END
+  WHERE id = video_uuid;
+  
+  INSERT INTO coin_transactions (
+    user_id, amount, transaction_type, description, reference_id
+  ) VALUES (
+    video_record.user_id, 0, ''admin_adjustment'', 
+    ''Video status changed to '' || new_status || CASE WHEN reason IS NOT NULL THEN '': '' || reason ELSE '''' END,
+    video_uuid
+  );
+  
+  RETURN json_build_object(
+    ''success'', true,
+    ''new_status'', new_status,
+    ''message'', ''Video status updated successfully''
+  );
+END;
+';
+
+CREATE OR REPLACE FUNCTION check_and_update_expired_holds() RETURNS integer LANGUAGE plpgsql AS '
+DECLARE
+  updated_count INTEGER;
+BEGIN
+  -- Update videos from on_hold to active if hold_until has passed
+  UPDATE videos 
+  SET status = ''active'', updated_at = NOW()
+  WHERE status = ''on_hold'' 
+  AND hold_until <= NOW()
+  AND completed = FALSE;
+  
+  GET DIAGNOSTICS updated_count = ROW_COUNT;
+  
+  RETURN updated_count;
+END;
+';
+
 CREATE OR REPLACE FUNCTION update_transactions_updated_at() RETURNS trigger LANGUAGE plpgsql AS '
 BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+';
+
+CREATE OR REPLACE FUNCTION check_admin_permission(admin_email text, required_permission text) RETURNS boolean LANGUAGE plpgsql AS '
+DECLARE
+  admin_record RECORD;
+BEGIN
+  SELECT * INTO admin_record 
+  FROM admin_profiles 
+  WHERE email = admin_email AND is_active = true;
+  
+  IF NOT FOUND THEN
+    RETURN false;
+  END IF;
+  
+  IF admin_record.role = ''super_admin'' THEN
+    RETURN true;
+  END IF;
+  
+  RETURN (admin_record.permissions->>required_permission)::BOOLEAN = true;
 END;
 ';
 
@@ -946,38 +1059,6 @@ BEGIN
     ''refund_percentage'', refund_percentage,
     ''new_balance'', new_balance,
     ''message'', ''Video deleted successfully with '' || refund_percentage || ''% refund''
-  );
-END;
-';
-
-CREATE OR REPLACE FUNCTION admin_update_user_vip_status(user_uuid uuid, is_vip boolean, vip_duration_days integer, admin_id text) RETURNS json LANGUAGE plpgsql AS '
-DECLARE
-  user_record RECORD;
-BEGIN
-  SELECT * INTO user_record FROM profiles WHERE id = user_uuid;
-  
-  IF NOT FOUND THEN
-    RETURN json_build_object(''success'', false, ''error'', ''User not found'');
-  END IF;
-  
-  UPDATE profiles 
-  SET 
-    is_vip = is_vip,
-    vip_expires_at = CASE 
-      WHEN is_vip THEN NOW() + INTERVAL ''1 day'' * vip_duration_days
-      ELSE NULL
-    END,
-    updated_at = NOW()
-  WHERE id = user_uuid;
-  
-  RETURN json_build_object(
-    ''success'', true,
-    ''is_vip'', is_vip,
-    ''vip_expires_at'', CASE 
-      WHEN is_vip THEN NOW() + INTERVAL ''1 day'' * vip_duration_days
-      ELSE NULL
-    END,
-    ''message'', ''User VIP status updated successfully''
   );
 END;
 ';
@@ -1042,40 +1123,51 @@ BEGIN
 END;
 ';
 
-CREATE OR REPLACE FUNCTION admin_update_video_status(video_uuid uuid, new_status text, admin_id text, reason text) RETURNS json LANGUAGE plpgsql AS '
+CREATE OR REPLACE FUNCTION debug_watch_video(user_uuid uuid, video_uuid uuid, watch_duration integer) RETURNS json LANGUAGE plpgsql AS '
 DECLARE
-  video_record RECORD;
+  video_before RECORD;
+  video_after RECORD;
+  user_before RECORD;
+  user_after RECORD;
+  watch_result JSON;
 BEGIN
-  SELECT * INTO video_record FROM videos WHERE id = video_uuid;
+  -- Get initial states
+  SELECT * INTO video_before FROM videos WHERE id = video_uuid;
+  SELECT * INTO user_before FROM profiles WHERE id = user_uuid;
   
-  IF NOT FOUND THEN
-    RETURN json_build_object(''success'', false, ''error'', ''Video not found'');
-  END IF;
+  -- Attempt to watch video
+  SELECT watch_video_and_earn_coins(user_uuid, video_uuid, watch_duration, true) INTO watch_result;
   
-  IF new_status NOT IN (''active'', ''paused'', ''completed'', ''on_hold'', ''repromoted'') THEN
-    RETURN json_build_object(''success'', false, ''error'', ''Invalid status'');
-  END IF;
-  
-  UPDATE videos 
-  SET 
-    status = new_status,
-    updated_at = NOW(),
-    hold_until = CASE WHEN new_status = ''on_hold'' THEN NOW() + INTERVAL ''10 minutes'' ELSE hold_until END,
-    repromoted_at = CASE WHEN new_status = ''repromoted'' THEN NOW() ELSE repromoted_at END
-  WHERE id = video_uuid;
-  
-  INSERT INTO coin_transactions (
-    user_id, amount, transaction_type, description, reference_id
-  ) VALUES (
-    video_record.user_id, 0, ''admin_adjustment'', 
-    ''Video status changed to '' || new_status || CASE WHEN reason IS NOT NULL THEN '': '' || reason ELSE '''' END,
-    video_uuid
-  );
+  -- Get final states
+  SELECT * INTO video_after FROM videos WHERE id = video_uuid;
+  SELECT * INTO user_after FROM profiles WHERE id = user_uuid;
   
   RETURN json_build_object(
-    ''success'', true,
-    ''new_status'', new_status,
-    ''message'', ''Video status updated successfully''
+    ''watch_result'', watch_result,
+    ''video_before'', json_build_object(
+      ''views_count'', video_before.views_count,
+      ''total_watch_time'', video_before.total_watch_time,
+      ''completion_rate'', video_before.completion_rate,
+      ''owner_id'', video_before.user_id
+    ),
+    ''video_after'', json_build_object(
+      ''views_count'', video_after.views_count,
+      ''total_watch_time'', video_after.total_watch_time,
+      ''completion_rate'', video_after.completion_rate,
+      ''owner_id'', video_after.user_id
+    ),
+    ''user_before'', json_build_object(
+      ''coins'', user_before.coins
+    ),
+    ''user_after'', json_build_object(
+      ''coins'', user_after.coins
+    ),
+    ''is_owner'', (video_before.user_id = user_uuid),
+    ''changes'', json_build_object(
+      ''views_changed'', (video_after.views_count != video_before.views_count),
+      ''watch_time_changed'', (video_after.total_watch_time != video_before.total_watch_time),
+      ''coins_changed'', (user_after.coins != user_before.coins)
+    )
   );
 END;
 ';
@@ -1230,26 +1322,6 @@ BEGIN
     ''video_total_watch_time'', v_new_total_watch_time,
     ''video_completion_rate'', v_new_completion_rate
   );
-END;
-';
-
-CREATE OR REPLACE FUNCTION check_admin_permission(admin_email text, required_permission text) RETURNS boolean LANGUAGE plpgsql AS '
-DECLARE
-  admin_record RECORD;
-BEGIN
-  SELECT * INTO admin_record 
-  FROM admin_profiles 
-  WHERE email = admin_email AND is_active = true;
-  
-  IF NOT FOUND THEN
-    RETURN false;
-  END IF;
-  
-  IF admin_record.role = ''super_admin'' THEN
-    RETURN true;
-  END IF;
-  
-  RETURN (admin_record.permissions->>required_permission)::BOOLEAN = true;
 END;
 ';
 
@@ -1419,55 +1491,6 @@ BEGIN
 END;
 ';
 
-CREATE OR REPLACE FUNCTION debug_watch_video(user_uuid uuid, video_uuid uuid, watch_duration integer) RETURNS json LANGUAGE plpgsql AS '
-DECLARE
-  video_before RECORD;
-  video_after RECORD;
-  user_before RECORD;
-  user_after RECORD;
-  watch_result JSON;
-BEGIN
-  -- Get initial states
-  SELECT * INTO video_before FROM videos WHERE id = video_uuid;
-  SELECT * INTO user_before FROM profiles WHERE id = user_uuid;
-  
-  -- Attempt to watch video
-  SELECT watch_video_and_earn_coins(user_uuid, video_uuid, watch_duration, true) INTO watch_result;
-  
-  -- Get final states
-  SELECT * INTO video_after FROM videos WHERE id = video_uuid;
-  SELECT * INTO user_after FROM profiles WHERE id = user_uuid;
-  
-  RETURN json_build_object(
-    ''watch_result'', watch_result,
-    ''video_before'', json_build_object(
-      ''views_count'', video_before.views_count,
-      ''total_watch_time'', video_before.total_watch_time,
-      ''completion_rate'', video_before.completion_rate,
-      ''owner_id'', video_before.user_id
-    ),
-    ''video_after'', json_build_object(
-      ''views_count'', video_after.views_count,
-      ''total_watch_time'', video_after.total_watch_time,
-      ''completion_rate'', video_after.completion_rate,
-      ''owner_id'', video_after.user_id
-    ),
-    ''user_before'', json_build_object(
-      ''coins'', user_before.coins
-    ),
-    ''user_after'', json_build_object(
-      ''coins'', user_after.coins
-    ),
-    ''is_owner'', (video_before.user_id = user_uuid),
-    ''changes'', json_build_object(
-      ''views_changed'', (video_after.views_count != video_before.views_count),
-      ''watch_time_changed'', (video_after.total_watch_time != video_before.total_watch_time),
-      ''coins_changed'', (user_after.coins != user_before.coins)
-    )
-  );
-END;
-';
-
 CREATE OR REPLACE FUNCTION test_metrics_update(video_uuid uuid, increment_views integer, add_watch_time integer) RETURNS json LANGUAGE plpgsql AS '
 DECLARE
   video_before RECORD;
@@ -1588,6 +1611,6 @@ COMMIT;
 
 -- Backup completed successfully
 -- Total tables: 8
--- Generated at: 2025-08-10T17:44:05.799Z
+-- Generated at: 2025-08-16T15:30:24.932Z
 -- Database: https://kuibswqfmhhdybttbcoa.supabase.co
 -- This backup includes: Tables, Data, Indexes, Triggers, RLS Policies, and Functions
