@@ -5,8 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { useCustomAlert } from '../../hooks/useCustomAlert';
-import CustomAlert from '../../components/CustomAlert';
+import { useNotification } from '../../contexts/NotificationContext';
 import { watchVideoAndEarnCoins } from '../../lib/supabase';
 import { useTheme } from '../../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -25,7 +24,7 @@ const isTablet = screenWidth >= 768;
 
 export default function ViewTab() {
   const { user, refreshProfile } = useAuth();
-  const { showSuccess, showError, showInfo, showAlert, alertProps } = useCustomAlert();
+  const { showError, showInfo } = useNotification();
   const { showNetworkAlert } = useNetwork();
   const { 
     videoQueue, 
@@ -400,142 +399,124 @@ export default function ViewTab() {
     startTimer();
   }, [currentVideo, webViewReady, startTimer]);
 
-  // Handle video completion
+  // Handle video completion - INSTANT
   const handleVideoCompletion = useCallback(async () => {
     if (!currentVideo || !user) return;
     
-    setIsProcessingReward(true);
     stopTimer();
 
     // Check if reward was already processed to prevent duplicate processing
     if (rewardProcessedRef.current) {
       return;
     }
-    
-    try {
-      // Process the reward for current video directly
-      const result = await watchVideoAndEarnCoins(user.id, currentVideo.video_id, watchTimerRef.current, true);
-      
-      if (result.error || !result.data?.success) {
-        throw new Error(result.error?.message || 'Failed to process video watch');
-      }
-      
-      // Set reward processed flag ONLY after successful coin processing
-      rewardProcessedRef.current = true;
-      
-      // Refresh profile to update coin balance
-      await refreshProfile();
-      
-      // If video was marked as completed, refresh the queue
-      if (result.data?.video_completed) {
-        await refreshQueue(user.id);
-      }
-      
-      if (autoSkipEnabledRef.current) {
-        moveToNextVideo();
-      }
-      
-      setIsProcessingReward(false);
-    } catch (error) {
-      setIsProcessingReward(false);
-      
-      // Check for network errors and show appropriate alert
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      if (errorMessage.includes('Network request failed') || errorMessage.includes('fetch') || errorMessage.includes('TypeError')) {
-        showAlert({
-          title: 'Network Error',
-          message: 'Please check your internet connection and try again.',
-          type: 'error'
-        });
-      } else {
-        showAlert({
-          title: 'Error',
-          message: 'Failed to process video completion. Please try again.',
-          type: 'error'
-        });
-      }
-    }
-  }, [currentVideo, user, refreshProfile, showAlert]);
 
-  // Process reward and skip to next video
+    // Instant completion handling
+    rewardProcessedRef.current = true;
+    
+    // Auto-skip immediately if enabled
+    if (autoSkipEnabledRef.current) {
+      moveToNextVideo();
+    }
+    
+    // Process rewards in background without blocking UI
+    try {
+      // Background reward processing
+      const rewardPromise = watchVideoAndEarnCoins(user.id, currentVideo.video_id, watchTimerRef.current);
+      const profilePromise = refreshProfile();
+      
+      // Execute background tasks without waiting
+      Promise.all([rewardPromise, profilePromise]).catch(error => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        if (errorMessage.includes('Network request failed') || errorMessage.includes('fetch') || errorMessage.includes('TypeError')) {
+          showError(
+            'Background Sync',
+            'Reward processing in background. Check connection.'
+          );
+        } else {
+          showError(
+            'Background Error',
+            'Reward processing in background. Will retry automatically.'
+          );
+        }
+      });
+      
+    } catch (error) {
+      // Silent background error handling
+      console.log('Background completion processing error:', error);
+    }
+  }, [currentVideo, user, refreshProfile, showError, moveToNextVideo, stopTimer]);
+
+  // Process reward and skip to next video - INSTANT
   const processRewardAndSkip = useCallback(async () => {
     if (!currentVideo || !user) return;
     
-    setIsProcessingReward(true);
+    // Instant UI update - skip video immediately
+    rewardProcessedRef.current = true;
+    moveToNextVideo();
     
+    // Process reward in background without blocking UI
     try {
-      const result = await watchVideoAndEarnCoins(user.id, currentVideo.video_id, watchTimerRef.current, true);
+      // Background coin processing
+      const rewardPromise = watchVideoAndEarnCoins(user.id, currentVideo.video_id, watchTimerRef.current, true);
       
-      if (result.error || !result.data?.success) {
-        throw new Error(result.error?.message || 'Failed to process video watch');
-      }
+      // Background profile refresh
+      const profilePromise = refreshProfile();
       
-      // Set reward processed flag ONLY after successful coin processing
-      rewardProcessedRef.current = true;
+      // Background queue refresh if needed
+      const queuePromise = videoQueue.length <= 1 ? refreshQueue(user.id) : Promise.resolve();
       
-      // Refresh profile to update coin balance
-      await refreshProfile();
+      // Execute all background tasks without waiting
+      Promise.all([rewardPromise, profilePromise, queuePromise]).catch(error => {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        
+        if (errorMessage.includes('Network request failed') || errorMessage.includes('fetch') || errorMessage.includes('TypeError')) {
+          showError(
+            'Background Sync',
+            'Reward processing in background. Check connection.'
+          );
+        } else {
+          showError(
+            'Background Error',
+            'Reward processing in background. Will retry automatically.'
+          );
+        }
+      });
       
-      // Move to next video
-      moveToNextVideo();
-      
-      // Refresh queue if needed
-      if (videoQueue.length <= 1 && user) {
-        await refreshQueue(user.id);
-      }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      if (errorMessage.includes('Network request failed') || errorMessage.includes('fetch') || errorMessage.includes('TypeError')) {
-        showAlert({
-          title: 'Network Error',
-          message: 'Please check your internet connection and try again.',
-          type: 'error'
-        });
-      } else {
-        showAlert({
-          title: 'Error',
-          message: 'Failed to process video reward. Please try again.',
-          type: 'error'
-        });
-      }
-    } finally {
-      setIsProcessingReward(false);
+      // Silent background error handling - don't block UI
+      console.log('Background reward processing error:', error);
     }
-  }, [currentVideo, user, videoQueue.length, moveToNextVideo, refreshQueue, showAlert, refreshProfile]);
+  }, [currentVideo, user, videoQueue.length, moveToNextVideo, refreshQueue, showError, refreshProfile]);
 
-  // Handle skip to next video
-  const handleSkipToNext = useCallback(async () => {
+  // Handle skip to next video - INSTANT
+  const handleSkipToNext = useCallback(() => {
     if (autoSkipEnabledRef.current) {
-      await processRewardAndSkip();
+      processRewardAndSkip();
     } else {
-      // Reset processing state for immediate skip
-      setIsProcessingReward(false);
+      // Instant skip without processing
       rewardProcessedRef.current = false;
       moveToNextVideo();
     }
     
+    // Background queue refresh if needed
     if (videoQueue.length === 0 && user) {
-      await refreshQueue(user.id);
+      refreshQueue(user.id).catch(console.log);
     }
   }, [processRewardAndSkip, moveToNextVideo, videoQueue.length, refreshQueue, user]);
 
-  // Handle manual skip
+  // Handle manual skip - INSTANT
   const handleManualSkip = useCallback(() => {
-    const targetDuration = currentVideo?.duration_seconds || 0;
-    
-    if (watchTimer >= targetDuration && !rewardProcessedRef.current) {
+    if (watchTimerRef.current >= 30) {
       handleVideoCompletion();
     } else {
-      // Reset processing state for immediate skip
-      setIsProcessingReward(false);
+      // Instant skip without delay
       rewardProcessedRef.current = false;
       moveToNextVideo();
     }
-  }, [currentVideo, watchTimer, handleVideoCompletion, moveToNextVideo]);
+  }, [handleVideoCompletion, moveToNextVideo]);
 
-  // WebView message handler
+  // Handle WebView messages
   const handleWebViewMessage = useCallback((event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
@@ -543,10 +524,6 @@ export default function ViewTab() {
       switch (data.type) {
         case 'webViewReady':
           setWebViewReady(true);
-          
-          // Only log if there's a current video
-          if (currentVideo) {
-          }
           
           // If tab is focused, auto-play now that WebView is ready
           if (isTabFocusedRef.current && !rewardProcessedRef.current && currentVideo) {
@@ -596,10 +573,8 @@ export default function ViewTab() {
             videoLoadedRef.current = true;
             setVideoError(false);
             
-            // Reset processing state when video starts playing after completion
-            if (rewardProcessedRef.current) {
-              setIsProcessingReward(false);
-            }
+            // Video started playing - reset for next video
+            // No processing state needed for instant UI
           }
           
           // Clear buffering state and timeout
@@ -637,15 +612,14 @@ export default function ViewTab() {
           // Stop timer completely during buffering
           stopTimer();
           
-          // Set buffering timeout for weak internet alert
+          // Set buffering timeout for weak internet notification
           if (!bufferingTimeoutRef.current) {
             bufferingTimeoutRef.current = setTimeout(() => {
-              showAlert({
-                title: 'Weak Internet Connection',
-                message: 'Video is buffering due to slow internet.',
-                type: 'warning'
-              });
-            }, 3000);
+              showInfo(
+                'Buffering Video',
+                'Video is loading due to slow connection. Please wait...'
+              );
+            }, 5000); // Increased to 5 seconds to be less intrusive
           }
           break;
           
@@ -1515,8 +1489,6 @@ export default function ViewTab() {
         </TouchableOpacity>
       </View>
       
-      {/* Custom Alert Component */}
-      <CustomAlert {...alertProps} />
       
     </View>
   );
